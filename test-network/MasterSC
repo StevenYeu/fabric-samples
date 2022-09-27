@@ -1,0 +1,179 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	// Fabric 2.0+ Contract API
+	"github.com/hyperledger/fabric-contract-api-go/contractapi"
+)
+
+// SmartContract provides functions for managing an Asset
+type SmartContract struct {
+	contractapi.Contract
+	}
+
+// Data is our Asset. It will describe basic details of what makes up a simple asset
+type Data struct {
+	docType             string `json:"docType"`
+	id          string `json:"id"`
+	title           int    `json:"title"`
+	description          string `json:"description"`
+	Type string    `json:"Type"`
+	DOI string `json:"DOI"`
+	url             string `json:"url"`
+	manifest          string `json:"manifest"`
+	footprint           string    `json:"footprint"`
+	keywords          string `json:"keywords"`
+	otherDataIdName string    `json:"otherDataIdName"`
+	otherDataIdValue string `json:"otherDataIdValue"`
+	fundingAgencies string `json:"fundingAgencies"`
+	acknowledgment string `json:"acknowledgment"`
+	noteForChange string `json:"noteForChange"`
+	contributor string `json:"contributor"`
+	contributor_id string `json:"contributor_id"`
+	   }
+
+type User struct {
+		UUID             string `json:"UUID"`
+		userIDs          string `json:"usernames"` // Maybe a hash table - dictionary - map with User's emails, usernames, nicknames...
+	}
+
+// Are groups the same as an Organization? If so, creation of groups can be done from the Network config files. 
+type Group struct {
+		Group             string `json:"Name"`
+		GroupID          string `json:"groupid"` // Maybe a hash table - dictionary - map with User's emails, usernames, nicknames...
+	}
+// According to the google doc, we will need to implement the following functions
+
+/*
+ ==== Priviledged Functions ====
+*/
+func (s *SmartContract) createUser(ctx contractapi.TransactionContextInterface, userId string) error {   // Return UUID
+    exists, err := s.UserExists(ctx, userId)
+    if err != nil {
+      return err
+    }
+    if exists {
+      return fmt.Errorf("the user %s already exists", userId)
+    }
+	id := methodToGenerateUUID(ctx, userId) // Returns UUID String
+    user := User{
+		UUID:       id,
+    }
+    assetJSON, err := json.Marshal(asset)
+    if err != nil {
+      return err
+    }
+
+    return ctx.GetStub().PutState(id, assetJSON)
+  }
+
+
+func (s *SmartContract) associateUser(ctx contractapi.TransactionContextInterface, NewUserId string, UUID string) error { // Add Maping
+	exists, err := s.UserExists(ctx, userId)
+	if err != nil {
+		return err
+	  }
+	if exists {
+		// overwriting original User with new User
+		user := User{
+			UUID: UUID,
+			userIDs: {
+				// Add a new ID for the User
+				previousIDs, NewUserId
+			}
+		}
+	  }
+	  assetJSON, err := json.Marshal(user)
+      if err != nil {
+        return err
+      }
+
+      return ctx.GetStub().PutState(UUID, assetJSON)
+
+}
+
+func (s *SmartContract) createGroup(ctx contractapi.TransactionContextInterfaceg) error { // Creates Group. 
+	group := Group{
+		Group: Group,
+		GroupID: GroupID
+	}
+	assetJSON, err := json.Marshal(group)
+	if err != nil {
+	  return err
+	}
+	return ctx.GetStub().PutState(UUID, assetJSON)
+}
+addUserIDToGroup(UUID, group) // Add UUID to group => On the config side of things? Org should auth/add new users. 
+delUserIDFromGroup(UUID, group) // Undoes above
+
+/*
+ ==== Non Priviledged Functions ====
+*/
+getUUIDByAPIUser(userId) // Return UUID
+getAPIUserByUUID(UUID) // Return list of API users associated with UUID
+getUserIDGroupMembership(UUID) // Return list of groups UUID is a member of
+
+/*
+ ==== Other Functions on Previous CC ====
+*/
+
+ctx := contractapi.TransactionContextInterface 
+func () searchByManifest(ctx, manifest)  {
+	
+} 
+
+
+func () addDataSet(ctx, id, title, description, type, doi,...) {
+	
+}
+
+func () updateDataSet(ctx, id, title, description, type, doi,...) {
+	
+}
+
+func ()  deleteDataSet(ctx, id) {
+	
+}
+
+// look up data by key
+func () query(ctx, key) {
+	
+} 
+
+func () getAllStates(ctx) {
+	
+}
+
+func () getAllData(ctx)  {
+	
+}
+
+func () getDataByFootPrint(ctx, footprint) {
+	
+} 
+
+func () getMyContributedData(ctx) {
+	
+}
+
+func () getHistoryByKey(ctx, key) {
+	
+} 
+
+func () addWorkflow(ctx, id, workflowStr) {
+	
+}
+
+func () getAllWorkflow(ctx) {
+	
+} 
+
+func () deleteWorkflow(ctx, id) {
+	
+} 
+
+func () updateWorkflow(ctx, id, workflowStr) {
+	
+} 
