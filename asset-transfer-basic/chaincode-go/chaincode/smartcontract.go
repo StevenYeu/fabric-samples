@@ -84,12 +84,12 @@ func main() {
 // InitLedger adds a base set of Data entries to the ledger
 func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface, InitSchema string, InitData string) error {
 
-	// We use the function jsonReader in order to read the content of the shcema Json File. The schema Json file is composed by us and inserted as a parameter in the invokation of the initialization function.
+	// We use the function jsonReader in order to read the content of the schema Json File. The schema Json file is composed by us and inserted as a parameter in the invocation of the initialization function.
 	schemaJsonFileContent, error_schema := s.JsonReader(ctx, InitSchema)
 	firstJsonFileContent, error_file := s.JsonReader(ctx, InitData)
 
 	if error_schema != nil {
-		return fmt.Errorf("failed to read shcema.json file: %v", error_schema)
+		return fmt.Errorf("failed to read schema.json file: %v", error_schema)
 	} else if error_file != nil {
 		return fmt.Errorf("failed to read 1st json files: %v", error_file)
 	} else {
@@ -120,7 +120,7 @@ func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface, 
 			if err != nil {
 				return fmt.Errorf("failed to put to world state. %v", err)
 			} else {
-				fmt.Print("A new Data Struct has been created with the hash %v", firstJsonFileHash)
+				fmt.Printf("A new Data Struct has been created with the hash %v", firstJsonFileHash)
 			}
 
 			//This is the definition of the Schema that we should use for validate all the JSON files from now on.
@@ -140,7 +140,7 @@ func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface, 
 			if err != nil {
 				return fmt.Errorf("failed to put to world state. %v", err)
 			} else {
-				fmt.Print("A new Schema has been created with the hash %v", schemaJsonFileHash)
+				fmt.Printf("A new Schema has been created with the hash %v", schemaJsonFileHash)
 			}
 		}
 	}
@@ -156,11 +156,11 @@ func (s *SmartContract) Hash(ctx contractapi.TransactionContextInterface, doc st
 	var v interface{}
 	err := json.Unmarshal([]byte(doc), &v)
 	if err != nil {
-		return "HASH CRASH", fmt.Errorf("Unable to unmarshal Json String passed as parameter. No hash calculation can be completed: %v", err)
+		return "HASH CRASH", fmt.Errorf("unable to unmarshal Json String passed as parameter. No hash calculation can be completed: %v", err)
 	} else {
 		cdoc, err := json.Marshal(v)
 		if err != nil {
-			return "HASH CRASH", fmt.Errorf("Unable to re-marshal interface into json format. No hash calculation can be completed: %v", err)
+			return "HASH CRASH", fmt.Errorf("unable to re-marshal interface into json format. No hash calculation can be completed: %v", err)
 		} else {
 			sum := sha256.Sum256(cdoc)
 			return hex.EncodeToString(sum[0:]), nil
@@ -320,7 +320,7 @@ func (s *SmartContract) GetAllSchemas(ctx contractapi.TransactionContextInterfac
 func (s *SmartContract) AssetExists(ctx contractapi.TransactionContextInterface, Hash string) (bool, error) {
 	assetJSON, err := ctx.GetStub().GetState(Hash)
 	if err != nil {
-		return false, fmt.Errorf("failed to read from world state. Asset dosen't exist: %v", err)
+		return false, fmt.Errorf("failed to read from world state. Asset doesn't exist: %v", err)
 	} else if assetJSON != nil {
 		var data map[string]interface{}
 		err2 := json.Unmarshal(assetJSON, &data)
@@ -513,7 +513,7 @@ func (s *SmartContract) ReadSchema(ctx contractapi.TransactionContextInterface, 
 func (s *SmartContract) TransferAsset(ctx contractapi.TransactionContextInterface, Id string, newOwner string) (string, error) {
 	data, err := s.ReadAsset(ctx, Id)
 	if err != nil {
-		return "Read Asset function failed excecution", err
+		return "Read Asset function failed execution", err
 	}
 
 	data.Owner = newOwner
@@ -554,7 +554,7 @@ func (s *SmartContract) CreateUserID(ctx contractapi.TransactionContextInterface
 		return fmt.Errorf("the user with APIId %s already exists", APIId)
 	} else {
 		UUID, err := uuid.NewRandom()
-		fmt.Printf(UUID.String())
+		fmt.Print(UUID.String())
 		//UUID, err := "Random String", "Even a more random string"
 		//if err == "Random" {
 		if err != nil {
@@ -576,7 +576,7 @@ func (s *SmartContract) CreateUserID(ctx contractapi.TransactionContextInterface
 		if err3 != nil {
 			return fmt.Errorf("failed to create new user. %v", err3)
 		} else {
-			fmt.Print("A new User has been created with the UUID %v", UUID)
+			fmt.Printf("A new User has been created with the UUID %v", UUID)
 			return nil
 		}
 
@@ -587,7 +587,7 @@ func (s *SmartContract) CreateUserID(ctx contractapi.TransactionContextInterface
 func (s *SmartContract) AssociateUserWithUUID(ctx contractapi.TransactionContextInterface, UUID string, APIId string) (string, error) {
 	user, err := s.ReadUser(ctx, UUID)
 	if err != nil {
-		return "Error", fmt.Errorf("read User function failed excecution: %v", err)
+		return "Error", fmt.Errorf("read User function failed execution: %v", err)
 	}
 	if s.contains(ctx, user.APIUserId, APIId) {
 		return "APIId provided is already associated with user " + UUID, nil
@@ -656,7 +656,7 @@ func (s *SmartContract) GroupExists(ctx contractapi.TransactionContextInterface,
 		if err3, ok := data["GroupName"]; ok {
 			return assetJSON != nil, nil
 		} else {
-			return false, fmt.Errorf("failed to read from world state. Hash passed as parameter may correspond to a Schema struct or Data Struc rather than to a Group Struct: %v", err3)
+			return false, fmt.Errorf("failed to read from world state. Hash passed as parameter may correspond to a Schema struct or Data Struct rather than to a Group Struct: %v", err3)
 		}
 	} else {
 		return assetJSON != nil, nil
@@ -694,7 +694,7 @@ func (s *SmartContract) CreateGroup(ctx contractapi.TransactionContextInterface,
 		return fmt.Errorf("failed to create new Group. %v", err)
 	}
 
-	fmt.Print("The Group %v has been created ", group.GroupName)
+	fmt.Printf("The Group %v has been created ", group.GroupName)
 
 	return nil
 }
@@ -724,7 +724,7 @@ func (s *SmartContract) ReadGroup(ctx contractapi.TransactionContextInterface, G
 func (s *SmartContract) AddUserIDToGroup(ctx contractapi.TransactionContextInterface, UUID string, GroupId string) ([]string, error) {
 	group, err := s.ReadGroup(ctx, GroupId)
 	if err != nil {
-		return nil, fmt.Errorf("read Group function failed excecution: %v", err)
+		return nil, fmt.Errorf("read Group function failed execution: %v", err)
 	}
 
 	contained := s.contains(ctx, group.UUIDs, UUID)
@@ -769,7 +769,7 @@ func (s *SmartContract) RemoveElement(ctx contractapi.TransactionContextInterfac
 func (s *SmartContract) DelUserIDFromGroup(ctx contractapi.TransactionContextInterface, UUID string, Hash string) ([]string, error) {
 	group, err := s.ReadGroup(ctx, Hash)
 	if err != nil {
-		return nil, fmt.Errorf("read Group function failed excecution: %v", err)
+		return nil, fmt.Errorf("read Group function failed execution: %v", err)
 	}
 
 	contained := s.contains(ctx, group.UUIDs, UUID)
@@ -798,7 +798,7 @@ func (s *SmartContract) DelUserIDFromGroup(ctx contractapi.TransactionContextInt
 func (s *SmartContract) GetAPIUserByUUID(ctx contractapi.TransactionContextInterface, UUID string) ([]string, error) {
 	user, err := s.ReadUser(ctx, UUID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read User %v from Wrold State", UUID)
+		return nil, fmt.Errorf("failed to read User %v from World State", UUID)
 	}
 	return user.APIUserId, nil
 
@@ -807,7 +807,7 @@ func (s *SmartContract) GetAPIUserByUUID(ctx contractapi.TransactionContextInter
 func submittingClientIdentity(ctx contractapi.TransactionContextInterface) (string, error) {
 	b64ID, err := ctx.GetClientIdentity().GetID()
 	if err != nil {
-		return "", fmt.Errorf("Failed to read clientID: %v", err)
+		return "", fmt.Errorf("failed to read clientID: %v", err)
 	}
 	decodeID, err := base64.StdEncoding.DecodeString(b64ID)
 	if err != nil {
@@ -833,7 +833,7 @@ func verifyClientOrgMatchesPeerOrg(ctx contractapi.TransactionContextInterface) 
 	return nil
 }
 
-// WriteSchemaToPDC submits a schema to an Org's priva data collection so validations of incoming data can be done.
+// WriteSchemaToPDC submits a schema to an Org's private data collection so validations of incoming data can be done.
 
 func (s *SmartContract) WriteSchemaToPDC(ctx contractapi.TransactionContextInterface) error {
 	// Get new asset from transient map
