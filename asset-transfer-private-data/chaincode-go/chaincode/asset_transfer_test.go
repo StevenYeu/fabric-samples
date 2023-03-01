@@ -7,7 +7,9 @@ package chaincode_test
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/hyperledger/fabric-chaincode-go/pkg/cid"
@@ -54,26 +56,6 @@ const myOrg2Msp = "Org2Testmsp"
 const myOrg2Clientid = "myOrg2Userid"
 const myOrg2PrivCollection = "Org2TestmspPrivateCollection"
 
-func prepMocksAsOrg1() (*mocks.TransactionContext, *mocks.ChaincodeStub) {
-	return prepMocks(myOrg1Msp, myOrg1Clientid)
-}
-func prepMocksAsOrg2() (*mocks.TransactionContext, *mocks.ChaincodeStub) {
-	return prepMocks(myOrg2Msp, myOrg2Clientid)
-}
-func prepMocks(orgMSP, clientId string) (*mocks.TransactionContext, *mocks.ChaincodeStub) {
-	chaincodeStub := &mocks.ChaincodeStub{}
-	transactionContext := &mocks.TransactionContext{}
-	transactionContext.GetStubReturns(chaincodeStub)
-
-	clientIdentity := &mocks.ClientIdentity{}
-	clientIdentity.GetMSPIDReturns(orgMSP, nil)
-	clientIdentity.GetIDReturns(clientId, nil)
-	//set matching msp ID using peer shim env variable
-	os.Setenv("CORE_PEER_LOCALMSPID", orgMSP)
-	transactionContext.GetClientIdentityReturns(clientIdentity)
-	return transactionContext, chaincodeStub
-}
-
 func TestCreateUserID(t *testing.T) {
 	chaincodeStub := &mocks.ChaincodeStub{}
 	transactionContext := &mocks.TransactionContext{}
@@ -98,4 +80,135 @@ func TestCreateUserIDDuplicate(t *testing.T) {
 	contract := chaincode.SmartContract{}
 	err = contract.CreateUserID(transactionContext, "testID", "testOrg")
 	require.EqualError(t, err, "the user with APIId testID already exists")
+}
+
+func TestReadSchemaFromPDCSuccess(t *testing.T) {
+	transactionContext, chaincodeStub := prepMocksAsOrg1()
+	contract := chaincode.SmartContract{}
+	expectedSchema := chaincode.Schema{JsonSchemaContent: map[string]interface{}{
+		"type": "object",
+		"properties": struct {
+			name string
+		}{
+			name: "test",
+		},
+		"additionalProperties": true,
+		"require":              []string{"number"},
+	}, SchemaId: "test1", Project: "testProject"}
+	data, err := json.Marshal(expectedSchema)
+	require.NoError(t, err)
+
+	chaincodeStub.GetPrivateDataReturns(data, nil)
+
+	got, err := contract.ReadSchemaFromPDC(transactionContext, "test1")
+	require.NoError(t, err)
+
+	require.Equal(t, expectedSchema.SchemaId, got.SchemaId)
+}
+
+func TestReadSchemaFromPDCSchemaNotFound(t *testing.T) {
+	transactionContext, chaincodeStub := prepMocksAsOrg1()
+	contract := chaincode.SmartContract{}
+
+	chaincodeStub.GetPrivateDataReturns(nil, errors.New(""))
+
+	_, err := contract.ReadSchemaFromPDC(transactionContext, "IDNotFound")
+	if err == nil {
+		t.Errorf("expected  error")
+	}
+
+}
+
+func TestReadSchemaFromPDCInvalidClientIdentity(t *testing.T) {
+	chaincodeStub := &mocks.ChaincodeStub{}
+	transactionContext := &mocks.TransactionContext{}
+	transactionContext.GetStubReturns(chaincodeStub)
+	contract := chaincode.SmartContract{}
+
+	chaincodeStub.GetPrivateDataReturns(nil, nil)
+
+	_, err := contract.ReadSchemaFromPDC(transactionContext, "test1")
+
+	if err == nil {
+		t.Fatalf("expected error but got nil")
+	}
+
+	if !strings.Contains(err.Error(), "MSPID") {
+		t.Errorf("wrong error message")
+	}
+}
+
+func prepMocksAsOrg1() (*mocks.TransactionContext, *mocks.ChaincodeStub) {
+	return prepMocks(myOrg1Msp, myOrg1Clientid)
+}
+func prepMocksAsOrg2() (*mocks.TransactionContext, *mocks.ChaincodeStub) {
+	return prepMocks(myOrg2Msp, myOrg2Clientid)
+}
+func prepMocks(orgMSP, clientId string) (*mocks.TransactionContext, *mocks.ChaincodeStub) {
+	chaincodeStub := &mocks.ChaincodeStub{}
+	transactionContext := &mocks.TransactionContext{}
+	transactionContext.GetStubReturns(chaincodeStub)
+
+	clientIdentity := &mocks.ClientIdentity{}
+	clientIdentity.GetMSPIDReturns(orgMSP, nil)
+	clientIdentity.GetIDReturns(clientId, nil)
+	//set matching msp ID using peer shim env variable
+	os.Setenv("CORE_PEER_LOCALMSPID", orgMSP)
+	transactionContext.GetClientIdentityReturns(clientIdentity)
+	return transactionContext, chaincodeStub
+}
+
+// func setReturnAssetPrivateDetailsInTransientMap(t *testing.T, chaincodeStub *mocks.ChaincodeStub, assetPrivDetail *chaincode.AssetPrivateDetails) []byte {
+// 	assetOwnerBytes := []byte{}
+// 	if assetPrivDetail != nil {
+// 		var err error
+// 		assetOwnerBytes, err = json.Marshal(assetPrivDetail)
+// 		require.NoError(t, err)
+// 	}
+// 	assetPropMap := map[string][]byte{
+// 		"asset_value": assetOwnerBytes,
+// 	}
+// 	chaincodeStub.GetTransientReturns(assetPropMap, nil)
+// 	return assetOwnerBytes
+// }
+
+// func setReturnAssetOwnerInTransientMap(t *testing.T, chaincodeStub *mocks.ChaincodeStub, assetOwner *assetTransferTransientInput) []byte {
+// 	assetOwnerBytes := []byte{}
+// 	if assetOwner != nil {
+// 		var err error
+// 		assetOwnerBytes, err = json.Marshal(assetOwner)
+// 		require.NoError(t, err)
+// 	}
+// 	assetPropMap := map[string][]byte{
+// 		"asset_owner": assetOwnerBytes,
+// 	}
+// 	chaincodeStub.GetTransientReturns(assetPropMap, nil)
+// 	return assetOwnerBytes
+// }
+
+// func setReturnAssetPropsInTransientMap(t *testing.T, chaincodeStub *mocks.ChaincodeStub, testAsset *assetTransientInput) []byte {
+// 	assetBytes := []byte{}
+// 	if testAsset != nil {
+// 		var err error
+// 		assetBytes, err = json.Marshal(testAsset)
+// 		require.NoError(t, err)
+// 	}
+// 	assetPropMap := map[string][]byte{
+// 		"asset_properties": assetBytes,
+// 	}
+// 	chaincodeStub.GetTransientReturns(assetPropMap, nil)
+// 	return assetBytes
+// }
+
+func setReturnPrivateDataInStub(t *testing.T, chaincodeStub *mocks.ChaincodeStub, testAsset *chaincode.Schema) []byte {
+	if testAsset == nil {
+		chaincodeStub.GetPrivateDataReturns(nil, nil)
+		return nil
+	} else {
+		var err error
+		assetBytes, err := json.Marshal(testAsset)
+		require.NoError(t, err)
+		chaincodeStub.GetPrivateDataReturns(assetBytes, nil)
+		return assetBytes
+	}
 }
