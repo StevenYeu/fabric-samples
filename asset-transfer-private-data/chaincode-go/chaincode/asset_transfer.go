@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	//"github.com/gofiber/fiber/v2/uuid"
-	"github.com/google/uuid"
 
 	"github.com/hyperledger/fabric-chaincode-go/shim"
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
@@ -66,17 +65,26 @@ type Schema struct {
 }
 
 type User struct {
-	UUID      string   `json:"UUID"`
-	APIUserId []string `json:"APIUserId"`
-	Org       string   `json:"Org"`
+	UID       string `json:"UID"`
+	APIUserId string `json:"APIUserId"`
+	Group     string `json:"Group"`
+	Project   string `json:"Project"`
+	Org       string `json:"Org"`
 }
 
 type Group struct {
-	GroupName string   `json:"GroupName"`
-	UUIDs     []string `json:"UUIDs"`
-	Project   string   `json:"Project"`
-	Org       string   `json:"Org"`
-	GroupId   string   `json:"GroupId"`
+	GID       string `json:"GID"`
+	GroupName string `json:"GroupName"`
+	Project   string `json:"Project"`
+	Org       string `json:"Org"`
+	Users     []User `json:"Users"`
+}
+
+type Project struct {
+	PID         string  `json:"PID"`
+	ProjectName string  `json:"ProjectName"`
+	Org         string  `json:"Org"`
+	Groups      []Group `json:"Groups"`
 }
 
 // Main function
@@ -90,77 +98,6 @@ func main() {
 		log.Panicf("Error starting artifact chaincode: %v", err)
 	}
 }
-
-// InitLedger adds a base set of Data entries to the ledger
-/*func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface, InitSchema string, InitData string) error {
-
-	// We use the function jsonReader in order to read the content of the shcema Json File. The schema Json file is composed by us and inserted as a parameter in the invokation of the initialization function.
-	schemaJsonFileContent, error_schema := s.JsonReader(ctx, InitSchema)
-	firstJsonFileContent, error_file := s.JsonReader(ctx, InitData)
-
-	if error_schema != nil {
-		return fmt.Errorf("failed to read shcema.json file: %v", error_schema)
-	} else if error_file != nil {
-		return fmt.Errorf("failed to read 1st json files: %v", error_file)
-	} else {
-
-		firstJsonFileHash, initDataHashError := s.Hash(ctx, InitData)
-		schemaJsonFileHash, schemaHashError := s.Hash(ctx, InitSchema)
-		lastSchemaHash = schemaJsonFileHash
-		if initDataHashError != nil {
-			return fmt.Errorf("failed to calculate 1st json file hash: %v", initDataHashError)
-		} else if schemaHashError != nil {
-			return fmt.Errorf("failed to calculate schema hash: %v", schemaHashError)
-		} else {
-			data := Data{
-				Contributor:     "pepitoperes@email.com",
-				ContributorId:   "ABC123",
-				ContentHash:     firstJsonFileHash,
-				Id:              "00000",
-				Owner:           "CIA",
-				JsonFileContent: firstJsonFileContent,
-			}
-
-			assetJSON, err := json.Marshal(data)
-			if err != nil {
-				return err
-			}
-
-			err = ctx.GetStub().PutState(data.ContentHash, assetJSON)
-			if err != nil {
-				return fmt.Errorf("failed to put to world state. %v", err)
-			} else {
-				fmt.Print("A new Data Struct has been created with the hash %v", firstJsonFileHash)
-			}
-
-			//This is the definition of the Schema that we should use for validate all the JSON files from now on.
-
-			initSchema := Schema{
-				Version:           1,
-				Hash:              schemaJsonFileHash,
-				JsonSchemaContent: schemaJsonFileContent,
-			}
-
-			assetJSON, err = json.Marshal(initSchema)
-			if err != nil {
-				return err
-			}
-
-			err = ctx.GetStub().PutState(initSchema.Hash, assetJSON)
-			if err != nil {
-				return fmt.Errorf("failed to put to world state. %v", err)
-			} else {
-				fmt.Print("A new Schema has been created with the hash %v", schemaJsonFileHash)
-			}
-		}
-	}
-	return nil
-}
-*/
-
-/*func (s *SmartContract) LastSchemaHash(ctx contractapi.TransactionContextInterface) string {
-return lastSchemaHash
-*/
 
 func (s *SmartContract) Hash(ctx contractapi.TransactionContextInterface, doc string) (string, error) {
 
@@ -239,92 +176,6 @@ func (s *SmartContract) SchemaExists(ctx contractapi.TransactionContextInterface
 		return true, nil
 	}
 }
-
-/*
-func (s *SmartContract) CreateNewSchema(ctx contractapi.TransactionContextInterface, newSchemaContent string) error {
-
-	jsonFileContent, err := s.JsonReader(ctx, newSchemaContent)
-	if err != nil {
-		return err
-	} else {
-		// Verify that an schema with exact same structure doesn't exist yet.
-		hashContent, _ := s.Hash(ctx, newSchemaContent)
-		exists, err := s.SchemaExists(ctx, hashContent)
-		if exists {
-			return fmt.Errorf("Schema already exists: %v", err)
-		} else {
-			//get previous schema's id
-			assetJSON, err := ctx.GetStub().GetState(lastSchemaHash)
-			if err != nil {
-				return fmt.Errorf("failed to calculate new schema's version: %v", err)
-			} else {
-				var schema Schema
-				err2 := json.Unmarshal(assetJSON, &schema)
-				if err2 != nil {
-					return fmt.Errorf("failed to read from world state. LastSchemaHash var may be corrupted: %v", err2)
-				} else {
-					version := schema.Version + 1
-					lastSchemaHash = hashContent
-					newSchema := Schema{
-						Version:           version,
-						Hash:              hashContent,
-						JsonSchemaContent: jsonFileContent,
-					}
-					assetJSON, err := json.Marshal(newSchema)
-					if err != nil {
-						return err
-					}
-
-					err = ctx.GetStub().PutState(newSchema.Hash, assetJSON)
-					if err != nil {
-						return fmt.Errorf("failed to put to world state. %v", err)
-					}
-				}
-			}
-
-		}
-
-		return nil
-	}
-}
-*/
-
-// GetAllSchemas returns all schemas found in world state
-
-/*func (s *SmartContract) GetAllSchemas(ctx contractapi.TransactionContextInterface) ([]*Schema, error) {
-	// range query with empty string for startKey and endKey does an
-	// open-ended query of all schemas in the chaincode namespace.
-	resultsIterator, err := ctx.GetStub().GetStateByRange("", "")
-	if err != nil {
-		return nil, err
-	}
-	defer resultsIterator.Close()
-
-	var schemaSamples []*Schema
-	for resultsIterator.HasNext() {
-		queryResponse, err := resultsIterator.Next()
-		if err != nil {
-			return nil, err
-		}
-
-		var schema map[string]interface{}
-		err = json.Unmarshal(queryResponse.Value, &schema)
-		if err != nil {
-			return nil, err
-		} else if _, ok := schema["Hash"]; ok {
-			var schemaStruct Schema
-			err = json.Unmarshal(queryResponse.Value, &schemaStruct)
-			if err != nil {
-				return nil, err
-			} else {
-				schemaSamples = append(schemaSamples, &schemaStruct)
-			}
-		}
-	}
-
-	return schemaSamples, nil
-}
-*/
 
 // AssetExists returns true when asset with given ID exists in world state
 func (s *SmartContract) AssetExists(ctx contractapi.TransactionContextInterface, Hash string) (bool, error) {
@@ -431,44 +282,6 @@ func (s *SmartContract) CreateDataSample(ctx contractapi.TransactionContextInter
 
 }
 
-// UpdateAsset updates an existing asset in the world state with provided parameters.
-/*func (s *SmartContract) UpdateAsset(ctx contractapi.TransactionContextInterface,
-	Contributor string, ContributorId string, Id string, Owner string) error {
-	exists, err := s.AssetExists(ctx, Id)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return fmt.Errorf("the asset %s does not exist", Id)
-	}
-	// overwriting original asset with new asset
-	data := Data{
-		Contributor:   Contributor,
-		ContributorId: ContributorId,
-		ContentHash:   ContentHash,
-		Id:            Id,
-		Owner:         Owner,
-	}
-	assetJSON, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
-	return ctx.GetStub().PutState(Id, assetJSON)
-}
-*/
-
-func (s *SmartContract) DeleteAsset(ctx contractapi.TransactionContextInterface, Id string) error {
-	exists, err := s.AssetExists(ctx, Id)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return fmt.Errorf("the asset %s does not exist", Id)
-	}
-
-	return ctx.GetStub().DelState(Id)
-}
-
 func (s *SmartContract) ReadAsset(ctx contractapi.TransactionContextInterface, Id string) (*Data, error) {
 	assetJSON, err := ctx.GetStub().GetState(Id)
 	if err != nil {
@@ -505,25 +318,6 @@ func (s *SmartContract) ReadUser(ctx contractapi.TransactionContextInterface, UU
 	return &user, nil
 }
 
-/*func (s *SmartContract) ReadSchema(ctx contractapi.TransactionContextInterface, hash string) (*Schema, error) {
-	assetJSON, err := ctx.GetStub().GetState(hash)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read from world state: %v", err)
-	}
-	if assetJSON == nil {
-		return nil, fmt.Errorf("the schema with hash %s does not exist", hash)
-	}
-
-	var schema Schema
-	err = json.Unmarshal(assetJSON, &schema)
-	if err != nil {
-		return nil, err
-	}
-
-	return &schema, nil
-}
-*/
-
 // TransferAsset updates the owner field of asset with given id in world state, and returns the old owner.
 
 func (s *SmartContract) contains(ctx contractapi.TransactionContextInterface, st []string, str string) bool {
@@ -539,43 +333,81 @@ func (s *SmartContract) UserExists(ctx contractapi.TransactionContextInterface, 
 	return s.contains(ctx, APIUserIds, APIUserId)
 }
 
-func (s *SmartContract) CreateUserIDTest(ctx contractapi.TransactionContextInterface, APIId string, Org string) (string, error) {
-	UUID, err := uuid.NewRandom()
-	return UUID.String(), err
-}
-func (s *SmartContract) CreateUserID(ctx contractapi.TransactionContextInterface, APIId string, Org string) error {
-	userExists := s.UserExists(ctx, APIId) //Add a function to check whether a user already exists or not.
-	if userExists {
-		return fmt.Errorf("the user with APIId %s already exists", APIId)
-	} else {
-		UUID, err := uuid.NewRandom()
-		fmt.Print(UUID.String())
-		//UUID, err := "Random String", "Even a more random string"
-		//if err == "Random" {
-		if err != nil {
-			return fmt.Errorf("unable to calculate a new UUID: %v", err)
-		}
-		user := User{
-			UUID: UUID.String(),
-			//UUID:      UUID,
-			APIUserId: []string{APIId},
-			Org:       Org,
-		}
+// Subscribe a new user to the Implicit PDC (APIUserId, Project and Group are parameters in transient map)
+func (s *SmartContract) NewUser(ctx contractapi.TransactionContextInterface) error {
 
-		assetJSON, err2 := json.Marshal(user)
-		if err2 != nil {
-			return err2
-		}
-
-		err3 := ctx.GetStub().PutState(user.UUID, assetJSON)
-		if err3 != nil {
-			return fmt.Errorf("failed to create new user. %v", err3)
-		} else {
-			fmt.Printf("A new User has been created with the UUID %v", UUID)
-			return nil
-		}
-
+	transientAssetJSON, err := s.getTransientMap(ctx)
+	if err != nil {
+		return fmt.Errorf("error getting transient: %v", err)
 	}
+
+	type transientInput struct {
+		UID       string `json:"UID"`
+		APIUserId string `json:"APIUserId"`
+		Group     string `json:"Group"`
+		Project   string `json:"Project"`
+		Org       string `json:"Org"`
+	}
+
+	var assetInput transientInput
+	err = json.Unmarshal(transientAssetJSON, &assetInput)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal JSON: %v", err)
+	}
+
+	MSP, err := shim.GetMSPID()
+	if err != nil {
+		return fmt.Errorf("failed to get MSPID: %v", err)
+	}
+	PDC := "_implicit_org_" + MSP
+	assetInput.Org = MSP
+	assetInput.UID = MSP + '.' + assetInput.Project + '.' + assetInput.Group + '.' + assetInput.APIUserId
+	assetAsBytes, err := ctx.GetStub().GetPrivateData(PDC, assetInput.UID)
+
+	if err != nil {
+		return fmt.Errorf("failed to get User: %v", err)
+	} else if assetAsBytes != nil {
+		fmt.Println("User already exists: " + assetInput.UID)
+		return fmt.Errorf("this User already exists: " + assetInput.UID)
+	}
+
+	// Get ID of submitting client identity
+	clientID, err := submittingClientIdentity(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Verify that the client is submitting request to peer in their organization
+	// This is to ensure that a client from another org doesn't attempt to read or
+	// write private data from this peer.
+	err = verifyClientOrgMatchesPeerOrg(ctx)
+	if err != nil {
+		return fmt.Errorf("CreateSchema cannot be performed: Error %v", err)
+	}
+
+	NewUser := User{
+		UID:       assetInput.UID,
+		APIUserId: assetInput.APIUserId,
+		Group:     assetInput.Group,
+		Project:   assetInput.Project,
+		Org:       MSP,
+	}
+	assetJSONasBytes, err := json.Marshal(NewUser)
+	if err != nil {
+		return fmt.Errorf("failed to marshal Schema into JSON: %v", err)
+	}
+
+	// Save asset to private data collection
+	// Typical logger, logs to stdout/file in the fabric managed docker container, running this chaincode
+	// Look for container name like dev-peer0.org1.example.com-{chaincodename_version}-xyz
+	log.Printf("WriteSchemaToPDC Put: collection %v, ID %v, owner %v", PDC, assetInput.UID, clientID)
+
+	err = ctx.GetStub().PutPrivateData(PDC, assetInput.UID, assetJSONasBytes)
+	if err != nil {
+		return fmt.Errorf("failed to put asset into private data collection: %v", err)
+	}
+
+	return nil
 
 }
 
@@ -831,17 +663,10 @@ func verifyClientOrgMatchesPeerOrg(ctx contractapi.TransactionContextInterface) 
 // WriteSchemaToPDC submits a schema to an Org's priva data collection so validations of incoming data can be done.
 
 func (s *SmartContract) WriteSchemaToPDC(ctx contractapi.TransactionContextInterface) error {
-	// Get new asset from transient map
-	transientMap, err := ctx.GetStub().GetTransient()
+
+	transientAssetJSON, err := s.getTransientMap(ctx)
 	if err != nil {
 		return fmt.Errorf("error getting transient: %v", err)
-	}
-
-	// Asset properties are private, therefore they get passed in transient field, instead of func args
-	transientAssetJSON, ok := transientMap["asset_properties"]
-	if !ok {
-		//log error to stdout
-		return fmt.Errorf("asset not found in the transient map input")
 	}
 
 	type transientInput struct {
@@ -857,11 +682,6 @@ func (s *SmartContract) WriteSchemaToPDC(ctx contractapi.TransactionContextInter
 		return fmt.Errorf("failed to unmarshal JSON: %v", err)
 	}
 	jsonFileContent := assetInput.JsonSchemaContent
-	//jsonFileContent, err := s.JsonReader(ctx, assetInput.JsonSchemaContent)
-	//if err != nil {
-	//return err
-	//}
-	// Check if Schema already exists
 
 	MSP, err := shim.GetMSPID()
 	if err != nil {
@@ -992,19 +812,27 @@ func (s *SmartContract) GetAllPDCSchemas(ctx contractapi.TransactionContextInter
 	return schemas, nil
 }
 
-// Could also be called "Create Project"
-func (s *SmartContract) writeProjectToPDC(ctx contractapi.TransactionContextInterface) error {
+func (s *SmartContract) getTransientMap(ctx contractapi.TransactionContextInterface) ([]byte, error) {
 	// Get new asset from transient map
 	transientMap, err := ctx.GetStub().GetTransient()
 	if err != nil {
-		return fmt.Errorf("error getting transient: %v", err)
+		return nil, fmt.Errorf("error getting transient: %v", err)
 	}
-
 	// Project properties are private, therefore they get passed in transient field, instead of func args
 	transientAssetJSON, ok := transientMap["asset_properties"]
 	if !ok {
 		//log error to stdout
-		return fmt.Errorf("asset not found in the transient map input")
+		return nil, fmt.Errorf("asset not found in the transient map input")
+	}
+	return transientAssetJSON, nil
+}
+
+// Could also be called "Create Project"
+func (s *SmartContract) writeProjectToPDC(ctx contractapi.TransactionContextInterface) error {
+
+	transientAssetJSON, err := s.getTransientMap(ctx)
+	if err != nil {
+		return fmt.Errorf("error getting transient: %v", err)
 	}
 
 	type transientInput struct {
