@@ -361,7 +361,7 @@ func (s *SmartContract) NewUser(ctx contractapi.TransactionContextInterface) err
 	}
 	PDC := "_implicit_org_" + MSP
 	assetInput.Org = MSP
-	assetInput.UID = MSP + '.' + assetInput.Project + '.' + assetInput.Group + '.' + assetInput.APIUserId
+	assetInput.UID = MSP + "." + assetInput.Project + "." + assetInput.Group + "." + assetInput.APIUserId
 	assetAsBytes, err := ctx.GetStub().GetPrivateData(PDC, assetInput.UID)
 
 	if err != nil {
@@ -411,7 +411,7 @@ func (s *SmartContract) NewUser(ctx contractapi.TransactionContextInterface) err
 
 }
 
-func (s *SmartContract) AssociateUserWithUUID(ctx contractapi.TransactionContextInterface, UUID string, APIId string) (string, error) {
+/**func (s *SmartContract) AssociateUserWithUUID(ctx contractapi.TransactionContextInterface, UUID string, APIId string) (string, error) {
 	user, err := s.ReadUser(ctx, UUID)
 	if err != nil {
 		return "Error", fmt.Errorf("read User function failed excecution: %v", err)
@@ -574,6 +574,7 @@ func (s *SmartContract) AddUserIDToGroup(ctx contractapi.TransactionContextInter
 
 	return group.UUIDs, nil
 }
+**/
 
 func (s *SmartContract) LinearSearch(ctx contractapi.TransactionContextInterface, list []string, element string) int {
 	for i, n := range list {
@@ -593,7 +594,7 @@ func (s *SmartContract) RemoveElement(ctx contractapi.TransactionContextInterfac
 	}
 }
 
-func (s *SmartContract) DelUserIDFromGroup(ctx contractapi.TransactionContextInterface, UUID string, Hash string) ([]string, error) {
+/**func (s *SmartContract) DelUserIDFromGroup(ctx contractapi.TransactionContextInterface, UUID string, Hash string) ([]string, error) {
 	group, err := s.ReadGroup(ctx, Hash)
 	if err != nil {
 		return nil, fmt.Errorf("read Group function failed excecution: %v", err)
@@ -630,6 +631,7 @@ func (s *SmartContract) GetAPIUserByUUID(ctx contractapi.TransactionContextInter
 	return user.APIUserId, nil
 
 }
+**/
 
 func submittingClientIdentity(ctx contractapi.TransactionContextInterface) (string, error) {
 	b64ID, err := ctx.GetClientIdentity().GetID()

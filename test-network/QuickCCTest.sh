@@ -295,3 +295,12 @@ peer chaincode query -C mychannel -n private -c  '{"function":"ReadAsset","Args"
 
 
 peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private --peerAddresses localhost:7051 --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt" --peerAddresses localhost:9051 --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt" -c '{"function":"Hash","Args":["{ \"number\": 1603, \"street_name\": \"Pennsylvania\", \"street_type\": \"Avenue\"}"]}'
+
+
+
+echo "========= TESTING OF NewUser IMPLEMENTATION in IPDC ==========="
+
+
+export USER_PROPERTIES=$(echo -n "{\"APIUserId\":\"benitoPinedaGonzales@gmail.com\",\"Project\":\"Economy Project\",\"Group\": \"Admin\"}" | base64 | tr -d \\n)
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"NewUser","Args":[]}' --transient "{\"asset_properties\":\"$USER_PROPERTIES\"}"
