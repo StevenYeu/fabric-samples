@@ -301,6 +301,35 @@ peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.exa
 echo "========= TESTING OF NewUser IMPLEMENTATION in IPDC ==========="
 
 
-export USER_PROPERTIES=$(echo -n "{\"APIUserId\":\"benitoPinedaGonzales@gmail.com\",\"Project\":\"Economy Project\",\"Group\": \"Admin\"}" | base64 | tr -d \\n)
+export USER_PROPERTIES=$(echo -n "{\"APIUserId\":\"benitoPinedaGonzales@gmail.com\",\"Project\":\"OSC-IS_PROJECT\",\"Group\": \"Admin\"}" | base64 | tr -d \\n)
 
 peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"NewUser","Args":[]}' --transient "{\"asset_properties\":\"$USER_PROPERTIES\"}"
+
+
+echo "========= TESTING OF NewGroup IMPLEMENTATION in IPDC ==========="
+
+
+export GROUP_PROPERTIES=$(echo -n "{\"GroupName\":\"Admin\",\"Project\":\"OSC-IS_PROJECT\"}" | base64 | tr -d \\n)
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"NewGroup","Args":[]}' --transient "{\"asset_properties\":\"$GROUP_PROPERTIES\"}"
+
+
+echo "========= TESTING OF NewProject IMPLEMENTATION in IPDC ==========="
+
+export PROJECT_PROPERTIES=$(echo -n "{\"ProjectName\":\"OSC-IS_PROJECT\"}" | base64 | tr -d \\n)
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"NewProject","Args":[]}' --transient "{\"asset_properties\":\"$PROJECT_PROPERTIES\"}"
+
+
+echo "========= TESTING OF GiveProject - GiveGroup - GiveUser IMPLEMENTATION in IPDC ==========="
+
+ProjectName = OSC-IS_PROJECT
+GroupName = Admin
+APIUserId = benitoPinedaGonzales@gmail.com
+
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"GiveProject","Args":["Org1MSP.OSC-IS_PROJECT"]}'
+
+
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"GiveGroup","Args":["Org1MSP.OSC-IS_PROJECT.Admin"]}'
