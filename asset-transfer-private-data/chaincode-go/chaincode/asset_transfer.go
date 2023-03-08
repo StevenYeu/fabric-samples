@@ -1358,3 +1358,7 @@ func (s *SmartContract) GetAllPDCUsers(ctx contractapi.TransactionContextInterfa
 	return users, nil
 
 }
+
+func (s *SmartContract) VerifyUserIsAdmin(ctx contractapi.TransactionContextInterface, GID string) (bool, error) {
+
+}
