@@ -341,4 +341,13 @@ peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.exa
 
 
 
-peer chaincode query -C mychannel -n private -c  '{"function":"GetAllUsers","Args":[]}'
+peer chaincode query -C mychannel -n private -c  '{"function":"GetAllPDCUsers","Args":[]}'
+
+
+echo "========= TESTING OF Init() in IPDC ==========="
+
+export INIT_PROPERTIES=$(echo -n "{\"ProjectName\":\"OSC-IS_PROJECT\"}" | base64 | tr -d \\n)
+
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"Init","Args":[]}' --transient "{\"asset_properties\":\"$INIT_PROPERTIES\"}"
+
