@@ -466,24 +466,6 @@ func (s *SmartContract) ReadAsset(ctx contractapi.TransactionContextInterface, I
 	return &data, nil
 }
 
-func (s *SmartContract) ReadUser(ctx contractapi.TransactionContextInterface, UUID string) (, error) {
-	assetJSON, err := ctx.GetStub().GetState(UUID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read from world state: %v", err)
-	}
-	if assetJSON == nil {
-		return nil, fmt.Errorf("the User %s does not exist", UUID)
-	}
-
-	var user User
-	err = json.Unmarshal(assetJSON, &user)
-	if err != nil {
-		return nil, err
-	}
-
-	return &user, nil
-}
-
 // TransferAsset updates the owner field of asset with given id in world state, and returns the old owner.
 
 func (s *SmartContract) contains(ctx contractapi.TransactionContextInterface, st []string, str string) bool {
@@ -494,7 +476,6 @@ func (s *SmartContract) contains(ctx contractapi.TransactionContextInterface, st
 	}
 	return false
 }
-
 
 func (s *SmartContract) GetUser(ctx contractapi.TransactionContextInterface, APIUserId string) (*User, error) {
 
@@ -521,11 +502,11 @@ func (s *SmartContract) GetUser(ctx contractapi.TransactionContextInterface, API
 	if assetAsBytes == nil {
 		fmt.Println("User doesn't exist: " + UUID)
 		return nil, nil
-	} 
+	}
 
-	User = new(User)
+	User := new(User)
 
-	err = json.Unmarshal(GroupBytes, &User)
+	err = json.Unmarshal(assetAsBytes, &User)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %v", err)
 	}
@@ -534,12 +515,12 @@ func (s *SmartContract) GetUser(ctx contractapi.TransactionContextInterface, API
 
 }
 
-//Pass APIUserID as argument in transient map
+// Pass APIUserID as argument in transient map
 func (s *SmartContract) ReadUser(ctx contractapi.TransactionContextInterface) (*User, error) {
 
 	transientAssetJSON, err := s.getTransientMap(ctx)
 	if err != nil {
-		return fmt.Errorf("error getting transient: %v", err)
+		return nil, fmt.Errorf("error getting transient: %v", err)
 	}
 
 	type transientInput struct {
@@ -549,7 +530,7 @@ func (s *SmartContract) ReadUser(ctx contractapi.TransactionContextInterface) (*
 	var assetInput transientInput
 	err = json.Unmarshal(transientAssetJSON, &assetInput)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal JSON: %v", err)
+		return nil, fmt.Errorf("failed to unmarshal JSON: %v", err)
 	}
 
 	MSP, err := shim.GetMSPID()
@@ -557,7 +538,7 @@ func (s *SmartContract) ReadUser(ctx contractapi.TransactionContextInterface) (*
 		return nil, fmt.Errorf("failed to get MSPID: %v", err)
 	}
 
-	userID := MSP + "." + assetInput.APIUserId
+	userID := MSP + "." + assetInput.APIUserID
 
 	h := sha1.New()
 	h.Write([]byte(userID))
@@ -573,13 +554,13 @@ func (s *SmartContract) ReadUser(ctx contractapi.TransactionContextInterface) (*
 	}
 
 	if assetAsBytes == nil {
-		fmt.Println("User doesn't exist: " + assetInput.APIUserId)
+		fmt.Println("User doesn't exist: " + assetInput.APIUserID)
 		return nil, nil
-	} 
+	}
 
-	User = new(User)
+	User := new(User)
 
-	err = json.Unmarshal(GroupBytes, &User)
+	err = json.Unmarshal(assetAsBytes, &User)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %v", err)
 	}
@@ -1533,26 +1514,21 @@ func (s *SmartContract) AddUserToGroup(ctx contractapi.TransactionContextInterfa
 		return fmt.Errorf("Submitting Identity is not admin. Can't add user to Group: Error %v", err)
 	}
 
-	User, err := s.GetUser(ctx, assetInput.APIUserID)
+	User_, err := s.GetUser(ctx, assetInput.APIUserID)
 
 	if err != nil {
 		return fmt.Errorf("Verification of Existence of user cannot be performed: Error %v", err)
 	}
 
-	if User == nil {
+	if User_ == nil {
 		return fmt.Errorf("User doesn't exist yet. Please use function NewUser() to create a new User: Error %v", err)
 	}
 
-	userInGroup, err := s.contains(User.Groups, GID)
+	userInGroup := s.contains(ctx, User_.Groups, assetInput.GID)
 
-	if err != nil {
-		return fmt.Errorf("Verification of Existence of user in Group cannot be performed: Error %v", err)
-	}
-
-	if userInGroup{
+	if userInGroup {
 		return fmt.Errorf("User already belongs to group", err)
 	}
-
 
 	PDC := "_implicit_org_" + MSP
 
@@ -1569,7 +1545,14 @@ func (s *SmartContract) AddUserToGroup(ctx contractapi.TransactionContextInterfa
 		return fmt.Errorf("failed to unmarshal JSON: %v", err)
 	}
 
-	Group.Users = append(Group.Users, User)
+	NewUser := User{
+		UUID:      User_.UUID,
+		APIUserId: User_.APIUserId,
+		Groups:    User_.Groups,
+		Projects:  User_.Projects,
+		Org:       MSP,
+	}
+	Group.Users = append(Group.Users, NewUser)
 
 	assetJSONasBytes, err := json.Marshal(Group)
 	if err != nil {
@@ -1583,9 +1566,9 @@ func (s *SmartContract) AddUserToGroup(ctx contractapi.TransactionContextInterfa
 
 	//Update User
 
-	User.Groups = append(User.Groups, assetInput.GID)
+	User_.Groups = append(User_.Groups, assetInput.GID)
 
-	assetJSONasBytes, err := json.Marshal(User)
+	assetJSONasBytes, err = json.Marshal(User_)
 	if err != nil {
 		return fmt.Errorf("failed to marshal User into JSON: %v", err)
 	}
@@ -1601,11 +1584,8 @@ func (s *SmartContract) AddUserToGroup(ctx contractapi.TransactionContextInterfa
 		return fmt.Errorf("failed to put User into private data collection: %v", err)
 	}
 
-
-
 	return nil
 }
-
 
 // Pass GID and APIUserID as argument in transient dictionary
 func (s *SmartContract) RemoveUserFromGroup(ctx contractapi.TransactionContextInterface) error {
@@ -1659,13 +1639,13 @@ func (s *SmartContract) RemoveUserFromGroup(ctx contractapi.TransactionContextIn
 		return fmt.Errorf("User doesn't exist. %v", err)
 	}
 
-	userInGroup, err := s.contains(User.Groups, GID)
+	userInGroup := s.contains(ctx, User.Groups, GID)
 
 	if err != nil {
 		return fmt.Errorf("Verification of Existence of user in Group cannot be performed: Error %v", err)
 	}
 
-	if !userInGroup{
+	if !userInGroup {
 		return fmt.Errorf("User already removed from group", err)
 	}
 
@@ -1687,7 +1667,7 @@ func (s *SmartContract) RemoveUserFromGroup(ctx contractapi.TransactionContextIn
 	index := -1
 
 	for i, n := range Group.Users {
-		if n ==  assetInput.APIUserID {
+		if n.APIUserId == assetInput.APIUserID {
 			index = i
 			break
 		}
@@ -1695,9 +1675,8 @@ func (s *SmartContract) RemoveUserFromGroup(ctx contractapi.TransactionContextIn
 	if index != -1 {
 		Group.Users = append(Group.Users[:index])
 	} else {
-			return fmt.Errorf("User already removed from group", err)
+		return fmt.Errorf("User already removed from group", err)
 	}
-	
 
 	assetJSONasBytes, err := json.Marshal(Group)
 	if err != nil {
@@ -1711,9 +1690,9 @@ func (s *SmartContract) RemoveUserFromGroup(ctx contractapi.TransactionContextIn
 
 	//Update User
 
-	User.Groups = s.RemoveElement(User.Groups, assetInput.GID)
+	User.Groups = s.RemoveElement(ctx, User.Groups, assetInput.GID)
 
-	assetJSONasBytes, err := json.Marshal(User)
+	assetJSONasBytes, err = json.Marshal(User)
 	if err != nil {
 		return fmt.Errorf("failed to marshal User into JSON: %v", err)
 	}
