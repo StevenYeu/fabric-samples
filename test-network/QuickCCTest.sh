@@ -242,7 +242,8 @@ fabric-ca-client register --caname ca-org2 --id.name buyer --id.secret buyerpw -
 fabric-ca-client enroll -u https://buyer:buyerpw@localhost:8054 --caname ca-org2 -M "${PWD}/organizations/peerOrganizations/org2.example.com/users/buyer@org2.example.com/msp" --tls.certfiles "${PWD}/organizations/fabric-ca/org2/tls-cert.pem"
 cp "${PWD}/organizations/peerOrganizations/org2.example.com/msp/config.yaml" "${PWD}/organizations/peerOrganizations/org2.example.com/users/buyer@org2.example.com/msp/config.yaml"
 
-echo "========= CC Invoke: Creation of Schema in PDC ==========="
+
+echo "========= TESTING OF Init() in IPDC ==========="
 
 export PATH=${PWD}/../bin:$PATH
 export FABRIC_CFG_PATH=$PWD/../config/
@@ -251,6 +252,35 @@ export CORE_PEER_LOCALMSPID="Org1MSP"
 export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
 export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/org1.example.com/users/owner@org1.example.com/msp
 export CORE_PEER_ADDRESS=localhost:7051
+
+
+
+export INIT_PROPERTIES=$(echo -n "{\"ProjectName\":\"OSC-IS_PROJECT\"}" | base64 | tr -d \\n)
+
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"Init","Args":[]}' --transient "{\"asset_properties\":\"$INIT_PROPERTIES\"}"
+
+echo "========= TESTING OF GiveProject - GiveGroup - GiveUser IMPLEMENTATION in IPDC ==========="
+
+#ProjectName = OSC-IS_PROJECT
+#GroupName = Admin
+#APIUserId = benitoPinedaGonzales@gmail.com
+
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"GiveProject","Args":["Org1MSP.OSC-IS_PROJECT"]}'
+
+
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"GiveGroup","Args":["Org1MSP.OSC-IS_PROJECT.Admin"]}'
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"GiveGroup","Args":["Org1MSP.OSC-IS_PROJECT.Users"]}'
+
+peer chaincode query -C mychannel -n private -c  '{"function":"GetAllPDCUsers","Args":[]}'
+
+
+
+echo "========= CC Invoke: Creation of Schema in PDC ==========="
+
 
 export ASSET_PROPERTIES=$(echo -n "{\"SchemaId\":\"Project1.Schema1\",\"Project\":\"Project1\",\"JsonSchemaContent\":{\"type\": \"object\", \"properties\": { \"number\": { \"type\": \"number\" }, \"street_name\": { \"type\": \"string\" }, \"street_type\": { \"enum\": [\"Street\", \"Avenue\",\"Boulevard\"] }}, \"additionalProperties\": true, \"required\": [ \"number\", \"street_name\"]}}" | base64 | tr -d \\n)
 
@@ -321,19 +351,6 @@ export PROJECT_PROPERTIES=$(echo -n "{\"ProjectName\":\"OSC-IS_PROJECT\"}" | bas
 peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"NewProject","Args":[]}' --transient "{\"asset_properties\":\"$PROJECT_PROPERTIES\"}"
 
 
-echo "========= TESTING OF GiveProject - GiveGroup - GiveUser IMPLEMENTATION in IPDC ==========="
-
-ProjectName = OSC-IS_PROJECT
-GroupName = Admin
-APIUserId = benitoPinedaGonzales@gmail.com
-
-
-peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"GiveProject","Args":["Org1MSP.OSC-IS_PROJECT"]}'
-
-
-
-peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"GiveGroup","Args":["Org1MSP.OSC-IS_PROJECT.Admin"]}'
-
 
 peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"GiveUser","Args":["Org1MSP.OSC-IS_PROJECT.Admin.benitoPinedaGonzales@gmail.com"]}'
 
@@ -341,13 +358,5 @@ peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.exa
 
 
 
-peer chaincode query -C mychannel -n private -c  '{"function":"GetAllPDCUsers","Args":[]}'
 
-
-echo "========= TESTING OF Init() in IPDC ==========="
-
-export INIT_PROPERTIES=$(echo -n "{\"ProjectName\":\"OSC-IS_PROJECT\"}" | base64 | tr -d \\n)
-
-
-peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"Init","Args":[]}' --transient "{\"asset_properties\":\"$INIT_PROPERTIES\"}"
 
