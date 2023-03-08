@@ -501,17 +501,17 @@ func (s *SmartContract) GetUser(ctx contractapi.TransactionContextInterface, API
 
 	if assetAsBytes == nil {
 		fmt.Println("User doesn't exist: " + UUID)
-		return nil, nil
+		return nil, fmt.Errorf("failed to get User. User doesn't exist or can't be found in PDC. Verify Hash: %v", err)
 	}
 
-	User := new(User)
+	var user User
 
-	err = json.Unmarshal(assetAsBytes, &User)
+	err = json.Unmarshal(assetAsBytes, &user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %v", err)
 	}
 
-	return User, nil
+	return &user, nil
 
 }
 
@@ -558,18 +558,18 @@ func (s *SmartContract) ReadUser(ctx contractapi.TransactionContextInterface) (*
 		return nil, nil
 	}
 
-	User := new(User)
+	var user User
 
-	err = json.Unmarshal(assetAsBytes, &User)
+	err = json.Unmarshal(assetAsBytes, &user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %v", err)
 	}
 
-	return User, nil
+	return &user, nil
 
 }
 
-// Subscribe a new user to the Implicit PDC (APIUserId is obtained using submittingClientIdentity() func. ProjectName and GroupName need to be passed as parameters in transient map)
+// Subscribe a new user to the Implicit PDC. APIUserId  ProjectName and GroupName need to be passed as parameters in transient map
 
 func (s *SmartContract) NewUser(ctx contractapi.TransactionContextInterface) error {
 
@@ -603,8 +603,6 @@ func (s *SmartContract) NewUser(ctx contractapi.TransactionContextInterface) err
 	if err != nil {
 		return err
 	}
-
-	assetInput.APIUserId = clientID
 
 	//Has User been created?
 
@@ -1454,14 +1452,15 @@ func (s *SmartContract) VerifyUserIsAdmin(ctx contractapi.TransactionContextInte
 	if err != nil {
 		return false, fmt.Errorf("failed to read Group: %v", err)
 	}
-	Group := new(Group)
 
-	err = json.Unmarshal(GroupBytes, &Group)
+	var Group_ Group
+
+	err = json.Unmarshal(GroupBytes, &Group_)
 	if err != nil {
 		return false, fmt.Errorf("failed to unmarshal JSON: %v", err)
 	}
 
-	users := Group.Users
+	users := Group_.Users
 
 	for _, user := range users {
 		APIUserId := user.APIUserId
@@ -1503,11 +1502,11 @@ func (s *SmartContract) AddUserToGroup(ctx contractapi.TransactionContextInterfa
 	}
 
 	GroupSplit := strings.Split(GID, ".")
-	GIDAdmin := GroupSplit[0] + GroupSplit[1] + ".Admin"
+	GIDAdmin := GroupSplit[0] + "." + GroupSplit[1] + ".Admin"
 	isAdmin, err := s.VerifyUserIsAdmin(ctx, GIDAdmin)
 
 	if err != nil {
-		return fmt.Errorf("Verification of Identity cannot be performed: Error %v", err)
+		return fmt.Errorf("Verification of Identity cannot be performed. Can't verify if submitting user is admin or not: Error %v", err)
 	}
 
 	if !isAdmin {
@@ -1517,7 +1516,7 @@ func (s *SmartContract) AddUserToGroup(ctx contractapi.TransactionContextInterfa
 	User_, err := s.GetUser(ctx, assetInput.APIUserID)
 
 	if err != nil {
-		return fmt.Errorf("Verification of Existence of user cannot be performed: Error %v", err)
+		return fmt.Errorf("Verification of Existence of user %v cannot be performed: Error %v", assetInput.APIUserID, err)
 	}
 
 	if User_ == nil {
@@ -1538,7 +1537,7 @@ func (s *SmartContract) AddUserToGroup(ctx contractapi.TransactionContextInterfa
 		return fmt.Errorf("failed to get Group from PDC: %v", err)
 	}
 
-	Group := new(Group)
+	var Group Group
 
 	err = json.Unmarshal(assetAsBytes, &Group)
 	if err != nil {
@@ -1618,7 +1617,7 @@ func (s *SmartContract) RemoveUserFromGroup(ctx contractapi.TransactionContextIn
 	}
 
 	GroupSplit := strings.Split(GID, ".")
-	GIDAdmin := GroupSplit[0] + GroupSplit[1] + ".Admin"
+	GIDAdmin := GroupSplit[0] + "." + GroupSplit[1] + ".Admin"
 	isAdmin, err := s.VerifyUserIsAdmin(ctx, GIDAdmin)
 
 	if err != nil {
@@ -1645,8 +1644,8 @@ func (s *SmartContract) RemoveUserFromGroup(ctx contractapi.TransactionContextIn
 		return fmt.Errorf("Verification of Existence of user in Group cannot be performed: Error %v", err)
 	}
 
-	if !userInGroup {
-		return fmt.Errorf("User already removed from group", err)
+	if userInGroup == false {
+		return fmt.Errorf("User already removed from group or Group GID is not correct", err)
 	}
 
 	PDC := "_implicit_org_" + MSP
@@ -1657,7 +1656,7 @@ func (s *SmartContract) RemoveUserFromGroup(ctx contractapi.TransactionContextIn
 		return fmt.Errorf("failed to get Group from PDC: %v", err)
 	}
 
-	Group := new(Group)
+	var Group Group
 
 	err = json.Unmarshal(assetAsBytes, &Group)
 	if err != nil {
