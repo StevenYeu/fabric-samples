@@ -277,6 +277,24 @@ peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.exa
 
 peer chaincode query -C mychannel -n private -c  '{"function":"GetAllPDCUsers","Args":[]}'
 
+echo "========= CC Invoke: Adding User to Group ==========="
+
+export ADD_USER_TO_GROUP=$(echo -n "{\"GID\": \"Org1MSP.OSC-IS_PROJECT.Users\", \"APIUserID\": \"john@email.com\"}" | base64 | tr -d \\n)
+
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"AddUserToGroup","Args":[]}' --transient "{\"asset_properties\":\"$ADD_USER_TO_GROUP\"}"
+
+export USER_PROPERTIES=$(echo -n "{\"ProjectName\":\"OSC-IS_PROJECT\",\"GroupName\": \"Admin\", \"APIUserId\": \"john@email.com\"}" | base64 | tr -d \\n)
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"NewUser","Args":[]}' --transient "{\"asset_properties\":\"$USER_PROPERTIES\"}"
+
+
+echo "========= CC Invoke: Removing User from Group ==========="
+
+export REMOVE_USER_FROM_GROUP=$(echo -n "{\"GID\": \"Org1MSP.OSC-IS_PROJECT.User\", \"APIUserID\": \"john@email.com\"}" | base64 | tr -d \\n)
+
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"RemoveUserFromGroup","Args":[]}' --transient "{\"asset_properties\":\"$REMOVE_USER_FROM_GROUP\"}"
 
 
 echo "========= CC Invoke: Creation of Schema in PDC ==========="
@@ -294,6 +312,9 @@ peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.exa
 
 
 echo "========= CC Invoke: Reading of Schema in PDC ==========="
+
+
+peer chaincode query -C mychannel -n private -c '{"function":"GetUser","Args":["john@email.com"]}'
 
 peer chaincode query -C mychannel -n private -c '{"function":"ReadSchemaFromPDC","Args":["Project1.Schema1"]}'
 
@@ -331,7 +352,7 @@ peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.exa
 echo "========= TESTING OF NewUser IMPLEMENTATION in IPDC ==========="
 
 
-export USER_PROPERTIES=$(echo -n "{\"ProjectName\":\"OSC-IS_PROJECT\",\"GroupName\": \"Admin\"}" | base64 | tr -d \\n)
+export USER_PROPERTIES=$(echo -n "{\"ProjectName\":\"OSC-IS_PROJECT\",\"GroupName\": \"Admin\", \"APIUserId\": \"john@email.com\"}" | base64 | tr -d \\n)
 
 peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"NewUser","Args":[]}' --transient "{\"asset_properties\":\"$USER_PROPERTIES\"}"
 

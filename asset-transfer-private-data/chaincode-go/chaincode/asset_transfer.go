@@ -65,8 +65,8 @@ type User struct {
 }
 
 type Group struct {
-	GID       string `json:"GID"` // GID := OrgName + ProjectName + GroupName
-	GroupName string `json:"GroupName"`
+	GID       string `json:"GID"`       // GID := OrgName + ProjectName + GroupName
+	GroupName string `json:"GroupName"` //Admin or Users
 	Project   string `json:"Project"`
 	Org       string `json:"Org"`
 	Users     []User `json:"Users"` // Array of Users belonging to Group
@@ -569,7 +569,7 @@ func (s *SmartContract) ReadUser(ctx contractapi.TransactionContextInterface) (*
 
 }
 
-// Subscribe a new user to the Implicit PDC. APIUserId  ProjectName and GroupName need to be passed as parameters in transient map
+// Subscribe a new user to the Implicit PDC. APIUserId ProjectName and GroupName need to be passed as parameters in transient map
 
 func (s *SmartContract) NewUser(ctx contractapi.TransactionContextInterface) error {
 
@@ -637,48 +637,6 @@ func (s *SmartContract) NewUser(ctx contractapi.TransactionContextInterface) err
 	PID := MSP + "." + assetInput.ProjectName
 	GID := PID + "." + assetInput.GroupName
 
-	ProjectAsBytes, err := ctx.GetStub().GetPrivateData(PDC, PID)
-
-	if err != nil {
-		return fmt.Errorf("Error Getting the Project %v from the Implicit PDC: Error %v. User can't be created if no Project is specified.", ProjectAsBytes, err)
-	}
-
-	GroupAsBytes, err := ctx.GetStub().GetPrivateData(PDC, GID)
-
-	if err != nil {
-		return fmt.Errorf("Error Getting the Group %v from the Implicit PDC: Error %v. User can't be created if no Group is specified.", GroupAsBytes, err)
-	}
-
-	/**TransientProject := new(Project)
-
-		err = json.Unmarshal(ProjectAsBytes, TransientProject)
-		if err != nil {
-			return fmt.Errorf("failed to unmarshal JSON into Project Struct: %v", err)
-		}
-
-		Project_ := Project{
-			PID:         TransientProject.PID,
-			ProjectName: TransientProject.ProjectName,
-			Org:         TransientProject.Org,
-			Groups:      TransientProject.Groups,
-		}
-
-		TransientGroup := new(Group)
-
-		err = json.Unmarshal(GroupAsBytes, TransientGroup)
-		if err != nil {
-			return fmt.Errorf("failed to unmarshal JSON into Groups Struct: %v", err)
-		}
-
-		Group_ := Group{
-			GID:       TransientGroup.GID,
-			GroupName: TransientGroup.GroupName,
-			Project:   TransientGroup.Project,
-			Org:       TransientGroup.Org,
-			Users:     TransientGroup.Users,
-		}
-	**/
-
 	NewUser := User{
 		UUID:      assetInput.UUID,
 		APIUserId: assetInput.APIUserId,
@@ -699,6 +657,33 @@ func (s *SmartContract) NewUser(ctx contractapi.TransactionContextInterface) err
 	err = ctx.GetStub().PutPrivateData(PDC, assetInput.UUID, assetJSONasBytes)
 	if err != nil {
 		return fmt.Errorf("failed to put asset into private data collection: %v", err)
+	}
+
+	//Update of Users Group
+
+	GroupAsBytes, err := ctx.GetStub().GetPrivateData(PDC, GID)
+
+	if err != nil {
+		return fmt.Errorf("Error Getting the Group %v from the Implicit PDC: Error %v. User can't be created if no Group is specified.", GroupAsBytes, err)
+	}
+
+	var group Group
+
+	err = json.Unmarshal(GroupAsBytes, &group)
+	if err != nil {
+		fmt.Errorf("failed to unmarshal JSON: %v", err)
+	}
+
+	group.Users = append(group.Users, NewUser)
+
+	assetJSONasBytes, err = json.Marshal(group)
+	if err != nil {
+		return fmt.Errorf("failed to marshal Group into JSON: %v", err)
+	}
+
+	err = ctx.GetStub().PutPrivateData(PDC, GID, assetJSONasBytes)
+	if err != nil {
+		return fmt.Errorf("failed to Update Group into private data collection: %v", err)
 	}
 
 	return nil
@@ -1645,7 +1630,7 @@ func (s *SmartContract) RemoveUserFromGroup(ctx contractapi.TransactionContextIn
 	}
 
 	if userInGroup == false {
-		return fmt.Errorf("User already removed from group or Group GID is not correct", err)
+		fmt.Printf("User already removed from group or Group GID is not correct", err)
 	}
 
 	PDC := "_implicit_org_" + MSP
@@ -1674,7 +1659,7 @@ func (s *SmartContract) RemoveUserFromGroup(ctx contractapi.TransactionContextIn
 	if index != -1 {
 		Group.Users = append(Group.Users[:index])
 	} else {
-		return fmt.Errorf("User already removed from group", err)
+		fmt.Printf("User already removed from group", err)
 	}
 
 	assetJSONasBytes, err := json.Marshal(Group)
@@ -1689,7 +1674,16 @@ func (s *SmartContract) RemoveUserFromGroup(ctx contractapi.TransactionContextIn
 
 	//Update User
 
-	User.Groups = s.RemoveElement(ctx, User.Groups, assetInput.GID)
+	index = -1
+	for i, g := range User.Groups {
+		if g == assetInput.GID {
+			index = i
+			break
+		}
+	}
+	if index != -1 {
+		User.Groups = append(User.Groups[:index])
+	}
 
 	assetJSONasBytes, err = json.Marshal(User)
 	if err != nil {
