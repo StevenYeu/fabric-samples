@@ -56,17 +56,26 @@ type Schema struct {
 }
 
 type User struct {
-	UUID      string   `json:"UUID"`
-	APIUserId []string `json:"APIUserId"`
-	Org       string   `json:"Org"`
+	UID       string `json:"UID"`
+	APIUserId string `json:"APIUserId"`
+	Group     string `json:"Group"`
+	Project   string `json:"Project"`
+	Org       string `json:"Org"`
 }
 
 type Group struct {
-	GroupName string   `json:"GroupName"`
-	UUIDs     []string `json:"UUIDs"`
-	Project   string   `json:"Project"`
-	Org       string   `json:"Org"`
-	GroupId   string   `json:"GroupId"`
+	GID       string `json:"GID"`
+	GroupName string `json:"GroupName"`
+	Project   string `json:"Project"`
+	Org       string `json:"Org"`
+	Users     []User `json:"Users"`
+}
+
+type Project struct {
+	PID         string  `json:"PID"`
+	ProjectName string  `json:"ProjectName"`
+	Org         string  `json:"Org"`
+	Groups      []Group `json:"Groups"`
 }
 
 // Main function

@@ -242,7 +242,8 @@ fabric-ca-client register --caname ca-org2 --id.name buyer --id.secret buyerpw -
 fabric-ca-client enroll -u https://buyer:buyerpw@localhost:8054 --caname ca-org2 -M "${PWD}/organizations/peerOrganizations/org2.example.com/users/buyer@org2.example.com/msp" --tls.certfiles "${PWD}/organizations/fabric-ca/org2/tls-cert.pem"
 cp "${PWD}/organizations/peerOrganizations/org2.example.com/msp/config.yaml" "${PWD}/organizations/peerOrganizations/org2.example.com/users/buyer@org2.example.com/msp/config.yaml"
 
-echo "========= CC Invoke: Creation of Schema in PDC ==========="
+
+echo "========= TESTING OF Init() in IPDC ==========="
 
 export PATH=${PWD}/../bin:$PATH
 export FABRIC_CFG_PATH=$PWD/../config/
@@ -251,6 +252,53 @@ export CORE_PEER_LOCALMSPID="Org1MSP"
 export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
 export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/org1.example.com/users/owner@org1.example.com/msp
 export CORE_PEER_ADDRESS=localhost:7051
+
+
+
+export INIT_PROPERTIES=$(echo -n "{\"ProjectName\":\"OSC-IS_PROJECT\"}" | base64 | tr -d \\n)
+
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"Init","Args":[]}' --transient "{\"asset_properties\":\"$INIT_PROPERTIES\"}"
+
+echo "========= TESTING OF GiveProject - GiveGroup - GiveUser IMPLEMENTATION in IPDC ==========="
+
+#ProjectName = OSC-IS_PROJECT
+#GroupName = Admin
+#APIUserId = benitoPinedaGonzales@gmail.com
+
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"GiveProject","Args":["Org1MSP.OSC-IS_PROJECT"]}'
+
+
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"GiveGroup","Args":["Org1MSP.OSC-IS_PROJECT.Admin"]}'
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"GiveGroup","Args":["Org1MSP.OSC-IS_PROJECT.Users"]}'
+
+peer chaincode query -C mychannel -n private -c  '{"function":"GetAllPDCUsers","Args":[]}'
+
+echo "========= CC Invoke: Adding User to Group ==========="
+
+export ADD_USER_TO_GROUP=$(echo -n "{\"GID\": \"Org1MSP.OSC-IS_PROJECT.Users\", \"APIUserID\": \"john@email.com\"}" | base64 | tr -d \\n)
+
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"AddUserToGroup","Args":[]}' --transient "{\"asset_properties\":\"$ADD_USER_TO_GROUP\"}"
+
+export USER_PROPERTIES=$(echo -n "{\"ProjectName\":\"OSC-IS_PROJECT\",\"GroupName\": \"Admin\", \"APIUserId\": \"john@email.com\"}" | base64 | tr -d \\n)
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"NewUser","Args":[]}' --transient "{\"asset_properties\":\"$USER_PROPERTIES\"}"
+
+
+echo "========= CC Invoke: Removing User from Group ==========="
+
+export REMOVE_USER_FROM_GROUP=$(echo -n "{\"GID\": \"Org1MSP.OSC-IS_PROJECT.User\", \"APIUserID\": \"john@email.com\"}" | base64 | tr -d \\n)
+
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"RemoveUserFromGroup","Args":[]}' --transient "{\"asset_properties\":\"$REMOVE_USER_FROM_GROUP\"}"
+
+
+echo "========= CC Invoke: Creation of Schema in PDC ==========="
+
 
 export ASSET_PROPERTIES=$(echo -n "{\"SchemaId\":\"Project1.Schema1\",\"Project\":\"Project1\",\"JsonSchemaContent\":{\"type\": \"object\", \"properties\": { \"number\": { \"type\": \"number\" }, \"street_name\": { \"type\": \"string\" }, \"street_type\": { \"enum\": [\"Street\", \"Avenue\",\"Boulevard\"] }}, \"additionalProperties\": true, \"required\": [ \"number\", \"street_name\"]}}" | base64 | tr -d \\n)
 
@@ -264,6 +312,9 @@ peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.exa
 
 
 echo "========= CC Invoke: Reading of Schema in PDC ==========="
+
+
+peer chaincode query -C mychannel -n private -c '{"function":"GetUser","Args":["john@email.com"]}'
 
 peer chaincode query -C mychannel -n private -c '{"function":"ReadSchemaFromPDC","Args":["Project1.Schema1"]}'
 
@@ -295,3 +346,38 @@ peer chaincode query -C mychannel -n private -c  '{"function":"ReadAsset","Args"
 
 
 peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private --peerAddresses localhost:7051 --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt" --peerAddresses localhost:9051 --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt" -c '{"function":"Hash","Args":["{ \"number\": 1603, \"street_name\": \"Pennsylvania\", \"street_type\": \"Avenue\"}"]}'
+
+
+
+echo "========= TESTING OF NewUser IMPLEMENTATION in IPDC ==========="
+
+
+export USER_PROPERTIES=$(echo -n "{\"ProjectName\":\"OSC-IS_PROJECT\",\"GroupName\": \"Admin\", \"APIUserId\": \"john@email.com\"}" | base64 | tr -d \\n)
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"NewUser","Args":[]}' --transient "{\"asset_properties\":\"$USER_PROPERTIES\"}"
+
+
+echo "========= TESTING OF NewGroup IMPLEMENTATION in IPDC ==========="
+
+
+export GROUP_PROPERTIES=$(echo -n "{\"GroupName\":\"Admin\",\"ProjectName\":\"OSC-IS_PROJECT\"}" | base64 | tr -d \\n)
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"NewGroup","Args":[]}' --transient "{\"asset_properties\":\"$GROUP_PROPERTIES\"}"
+
+
+echo "========= TESTING OF NewProject IMPLEMENTATION in IPDC ==========="
+
+export PROJECT_PROPERTIES=$(echo -n "{\"ProjectName\":\"OSC-IS_PROJECT\"}" | base64 | tr -d \\n)
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"NewProject","Args":[]}' --transient "{\"asset_properties\":\"$PROJECT_PROPERTIES\"}"
+
+
+
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n private -c '{"function":"GiveUser","Args":["Org1MSP.OSC-IS_PROJECT.Admin.benitoPinedaGonzales@gmail.com"]}'
+
+
+
+
+
+
+
