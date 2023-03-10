@@ -1511,7 +1511,7 @@ func (s *SmartContract) AddUserToGroup(ctx contractapi.TransactionContextInterfa
 	userInGroup := s.contains(ctx, User_.Groups, assetInput.GID)
 
 	if userInGroup {
-		return fmt.Errorf("User already belongs to group", err)
+		return fmt.Errorf("User already belongs to group: %s", err)
 	}
 
 	PDC := "_implicit_org_" + MSP
@@ -1630,7 +1630,7 @@ func (s *SmartContract) RemoveUserFromGroup(ctx contractapi.TransactionContextIn
 	}
 
 	if userInGroup == false {
-		fmt.Printf("User already removed from group or Group GID is not correct", err)
+		fmt.Printf("User already removed from group or Group GID is not correct. Error: %s", err)
 	}
 
 	PDC := "_implicit_org_" + MSP
@@ -1659,7 +1659,7 @@ func (s *SmartContract) RemoveUserFromGroup(ctx contractapi.TransactionContextIn
 	if index != -1 {
 		Group.Users = append(Group.Users[:index])
 	} else {
-		fmt.Printf("User already removed from group", err)
+		fmt.Printf("User already removed from group. Error: %s", err)
 	}
 
 	assetJSONasBytes, err := json.Marshal(Group)

@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode_test
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -48,10 +50,18 @@ type clientIdentity interface {
 	cid.ClientIdentity
 }
 
-type transientInput struct {
+type transientSchemaInput struct {
 	JsonSchemaContent map[string]interface{} `json:"JsonSchemaContent"`
 	SchemaId          string                 `json:"SchemaId"`
-	Project           string                 `json:"Project`
+	Project           string                 `json:"Project"`
+}
+
+type transientUserInput struct {
+	UUID        string `json:"UUID"`
+	APIUserId   string `json:"APIUserId"`
+	GroupName   string `json:"GroupName"`
+	ProjectName string `json:"ProjectName"`
+	Org         string `json:"Org"`
 }
 
 const assetCollectionName = "assetCollection"
@@ -62,32 +72,6 @@ const myOrg1PrivCollection = "Org1TestmspPrivateCollection"
 const myOrg2Msp = "Org2Testmsp"
 const myOrg2Clientid = "myOrg2Userid"
 const myOrg2PrivCollection = "Org2TestmspPrivateCollection"
-
-func TestCreateUserID(t *testing.T) {
-	chaincodeStub := &mocks.ChaincodeStub{}
-	transactionContext := &mocks.TransactionContext{}
-	transactionContext.GetStubReturns(chaincodeStub)
-
-	contract := chaincode.SmartContract{}
-	err := contract.CreateUserID(transactionContext, "testID", "testOrg")
-	require.NoError(t, err)
-}
-
-func TestCreateUserIDDuplicate(t *testing.T) {
-	chaincodeStub := &mocks.ChaincodeStub{}
-	transactionContext := &mocks.TransactionContext{}
-	transactionContext.GetStubReturns(chaincodeStub)
-
-	existingUser := &chaincode.User{UUID: "uuid1", APIUserId: []string{"testID"}, Org: "testOrg"}
-	bytes, err := json.Marshal(existingUser)
-	require.NoError(t, err)
-
-	chaincodeStub.GetStateReturns(bytes, nil)
-
-	contract := chaincode.SmartContract{}
-	err = contract.CreateUserID(transactionContext, "testID", "testOrg")
-	require.EqualError(t, err, "the user with APIId testID already exists")
-}
 
 func TestReadSchemaFromPDCSuccess(t *testing.T) {
 	transactionContext, chaincodeStub := prepMocksAsOrg1()
@@ -149,7 +133,7 @@ func TestWriteSchemaToPDCSuccess(t *testing.T) {
 	transactionContext, chaincodeStub := prepMocksAsOrg1()
 	contract := chaincode.SmartContract{}
 
-	testSchema := transientInput{
+	testSchema := transientSchemaInput{
 		JsonSchemaContent: map[string]interface{}{
 			"type": "object",
 			"properties": struct {
@@ -163,7 +147,7 @@ func TestWriteSchemaToPDCSuccess(t *testing.T) {
 	}
 	expectedCollectionName := "_implicit_org_" + myOrg1Msp
 
-	setReturnAssetPropsInTransientMap(t, chaincodeStub, &testSchema)
+	setReturnPropsInTransientMap(t, chaincodeStub, &testSchema)
 
 	err := contract.WriteSchemaToPDC(transactionContext)
 
@@ -215,7 +199,7 @@ func TestWriteSchemaToPDCDuplicateSchema(t *testing.T) {
 
 	chaincodeStub.GetPrivateDataReturns(data, nil)
 
-	dupSchema := transientInput{
+	dupSchema := transientSchemaInput{
 		JsonSchemaContent: map[string]interface{}{
 			"type": "object",
 			"properties": struct {
@@ -228,7 +212,7 @@ func TestWriteSchemaToPDCDuplicateSchema(t *testing.T) {
 		}, SchemaId: "original", Project: "testProject1",
 	}
 
-	setReturnAssetPropsInTransientMap(t, chaincodeStub, &dupSchema)
+	setReturnPropsInTransientMap(t, chaincodeStub, &dupSchema)
 
 	err = contract.WriteSchemaToPDC(transactionContext)
 
@@ -248,7 +232,7 @@ func TestWriteSchemaToPDCInvalidOrgs(t *testing.T) {
 	os.Setenv("CORE_PEER_LOCALMSPID", myOrg2Msp)
 	transactionContext.GetClientIdentityReturns(clientIdentity)
 
-	testSchema := transientInput{
+	testSchema := transientSchemaInput{
 		JsonSchemaContent: map[string]interface{}{
 			"type": "object",
 			"properties": struct {
@@ -261,12 +245,193 @@ func TestWriteSchemaToPDCInvalidOrgs(t *testing.T) {
 		}, SchemaId: "writeTest1", Project: "testProject1",
 	}
 
-	setReturnAssetPropsInTransientMap(t, chaincodeStub, &testSchema)
+	setReturnPropsInTransientMap(t, chaincodeStub, &testSchema)
 
 	err := contract.WriteSchemaToPDC(transactionContext)
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), fmt.Sprintf("client from org %v is not authorized to read or write private data from an org %v peer", myOrg1Msp, myOrg2Msp))
+}
+
+func TestNewUserSuccess(t *testing.T) {
+	transactionContext, chaincodeStub := prepMocksAsOrg1()
+	contract := chaincode.SmartContract{}
+
+	testUserInput := transientUserInput{
+		UUID:        "testuuid1",
+		ProjectName: "testProj",
+		APIUserId:   "testAPIUserID",
+		Org:         myOrg1Msp,
+	}
+	expectedCollectionName := "_implicit_org_" + myOrg1Msp
+	expectedUUID := createUUID(testUserInput.APIUserId, myOrg1Msp)
+	setReturnPropsInTransientMap(t, chaincodeStub, &testUserInput)
+
+	expectedProject := myOrg1Msp + "." + testUserInput.ProjectName
+
+	expectedGroupID := expectedProject + "." + testUserInput.GroupName
+
+	testGroup := chaincode.Group{
+		GroupName: "testGroup",
+		GID:       expectedGroupID,
+		Project:   expectedProject,
+		Org:       myOrg1PrivCollection,
+		Users:     make([]chaincode.User, 0),
+	}
+
+	expectedUser := chaincode.User{
+		UUID:      expectedUUID,
+		APIUserId: testUserInput.APIUserId,
+		Groups:    []string{expectedGroupID},
+		Projects:  []string{expectedProject},
+		Org:       myOrg1Msp,
+	}
+
+	expectedGroup := chaincode.Group{
+		GroupName: "testGroup",
+		GID:       expectedGroupID,
+		Project:   expectedProject,
+		Org:       myOrg1PrivCollection,
+		Users:     []chaincode.User{expectedUser},
+	}
+
+	testGroupBytes, _ := json.Marshal(testGroup)
+	expectedGroupBytes, _ := json.Marshal(expectedGroup)
+	expectedUserBytes, _ := json.Marshal(expectedUser)
+
+	chaincodeStub.GetPrivateDataReturnsOnCall(0, nil, nil)
+	chaincodeStub.GetPrivateDataReturnsOnCall(1, testGroupBytes, nil)
+
+	err := contract.NewUser(transactionContext)
+
+	require.NoError(t, err)
+
+	calledCollection, calledId, gotUserBytes := chaincodeStub.PutPrivateDataArgsForCall(0)
+
+	require.Equal(t, expectedCollectionName, calledCollection)
+	require.Equal(t, expectedUUID, calledId)
+
+	require.Equal(t, expectedUserBytes, gotUserBytes)
+
+	_, calledGroupID, gotGroupBytes := chaincodeStub.PutPrivateDataArgsForCall(1)
+
+	require.Equal(t, expectedGroupID, calledGroupID)
+
+	require.Equal(t, expectedGroupBytes, gotGroupBytes)
+
+}
+
+func TestNewUserBadInput(t *testing.T) {
+	transactionContext, chaincodeStub := prepMocksAsOrg1()
+	contract := chaincode.SmartContract{}
+	chaincodeStub.GetTransientReturns(nil, errors.New(""))
+
+	err := contract.NewUser(transactionContext)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error getting transient:")
+
+	assetPropMap := map[string][]byte{
+		"asset_properties": []byte("bad input"),
+	}
+	chaincodeStub.GetTransientReturns(assetPropMap, nil)
+	err = contract.NewUser(transactionContext)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to unmarshal JSON")
+
+}
+
+func TestNewUserMissingInputFields(t *testing.T) {
+	transactionContext, chaincodeStub := prepMocksAsOrg1()
+	contract := chaincode.SmartContract{}
+	type testInput struct {
+		UUID        string `json:"UUID"`
+		APIUserId   string `json:"APIUserId"`
+		ProjectName string `json:"ProjectName"`
+		Org         string `json:"Org"`
+	}
+
+	missingGroupInput := testInput{
+		UUID:        "test",
+		APIUserId:   "test1",
+		ProjectName: "myproj",
+		Org:         myOrg1Msp,
+	}
+
+	setReturnPropsInTransientMap(t, chaincodeStub, &missingGroupInput)
+
+	err := contract.NewUser(transactionContext)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to unmarshal JSON")
+}
+
+func TestNewUserDuplicate(t *testing.T) {
+	transactionContext, chaincodeStub := prepMocksAsOrg1()
+	contract := chaincode.SmartContract{}
+
+	testUserInput := transientUserInput{
+		UUID:        "testuuid1",
+		ProjectName: "testProj",
+		APIUserId:   "testAPIUserID",
+		Org:         myOrg1Msp,
+	}
+	setReturnPropsInTransientMap(t, chaincodeStub, &testUserInput)
+
+	testProjectID := myOrg1Msp + "." + testUserInput.ProjectName
+
+	testGroupID := testProjectID + "." + testUserInput.GroupName
+	testUUID := createUUID(testUserInput.APIUserId, myOrg1Msp)
+
+	testUser := chaincode.User{
+		UUID:      testUUID,
+		APIUserId: testUserInput.APIUserId,
+		Groups:    []string{testGroupID},
+		Projects:  []string{testProjectID},
+		Org:       myOrg1Msp,
+	}
+
+	testUserBytes, _ := json.Marshal(testUser)
+
+	chaincodeStub.GetPrivateDataReturnsOnCall(0, testUserBytes, nil)
+
+	err := contract.NewUser(transactionContext)
+
+	gotPDC, gotUUID := chaincodeStub.GetPrivateDataArgsForCall(0)
+	expectedPDC := "_implicit_org_" + myOrg1Msp
+
+	require.Error(t, err)
+
+	require.Equal(t, expectedPDC, gotPDC)
+	require.Equal(t, testUUID, gotUUID)
+
+}
+
+func TestNewUserBadIdentity(t *testing.T) {
+	chaincodeStub := &mocks.ChaincodeStub{}
+	transactionContext := &mocks.TransactionContext{}
+	transactionContext.GetStubReturns(chaincodeStub)
+	clientIdentity := &mocks.ClientIdentity{}
+	clientIdentity.GetMSPIDReturns(myOrg1Msp, nil)
+	clientIdentity.GetIDReturns(myOrg1Clientid, nil)
+	contract := chaincode.SmartContract{}
+
+	os.Setenv("CORE_PEER_LOCALMSPID", myOrg2Msp)
+	transactionContext.GetClientIdentityReturns(clientIdentity)
+
+	testUserInput := transientUserInput{
+		UUID:        "testuuid1",
+		ProjectName: "testProj",
+		APIUserId:   "testAPIUserID",
+		Org:         myOrg1Msp,
+	}
+	setReturnPropsInTransientMap(t, chaincodeStub, &testUserInput)
+
+	err := contract.NewUser(transactionContext)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Creation of a New User cannot be performed:")
 }
 
 func prepMocksAsOrg1() (*mocks.TransactionContext, *mocks.ChaincodeStub) {
@@ -289,35 +454,7 @@ func prepMocks(orgMSP, clientId string) (*mocks.TransactionContext, *mocks.Chain
 	return transactionContext, chaincodeStub
 }
 
-// func setReturnAssetPrivateDetailsInTransientMap(t *testing.T, chaincodeStub *mocks.ChaincodeStub, assetPrivDetail *chaincode.AssetPrivateDetails) []byte {
-// 	assetOwnerBytes := []byte{}
-// 	if assetPrivDetail != nil {
-// 		var err error
-// 		assetOwnerBytes, err = json.Marshal(assetPrivDetail)
-// 		require.NoError(t, err)
-// 	}
-// 	assetPropMap := map[string][]byte{
-// 		"asset_value": assetOwnerBytes,
-// 	}
-// 	chaincodeStub.GetTransientReturns(assetPropMap, nil)
-// 	return assetOwnerBytes
-// }
-
-// func setReturnAssetOwnerInTransientMap(t *testing.T, chaincodeStub *mocks.ChaincodeStub, assetOwner *assetTransferTransientInput) []byte {
-// 	assetOwnerBytes := []byte{}
-// 	if assetOwner != nil {
-// 		var err error
-// 		assetOwnerBytes, err = json.Marshal(assetOwner)
-// 		require.NoError(t, err)
-// 	}
-// 	assetPropMap := map[string][]byte{
-// 		"asset_owner": assetOwnerBytes,
-// 	}
-// 	chaincodeStub.GetTransientReturns(assetPropMap, nil)
-// 	return assetOwnerBytes
-// }
-
-func setReturnAssetPropsInTransientMap(t *testing.T, chaincodeStub *mocks.ChaincodeStub, testAsset *transientInput) []byte {
+func setReturnPropsInTransientMap(t *testing.T, chaincodeStub *mocks.ChaincodeStub, testAsset interface{}) []byte {
 	assetBytes := []byte{}
 	if testAsset != nil {
 		var err error
@@ -331,7 +468,7 @@ func setReturnAssetPropsInTransientMap(t *testing.T, chaincodeStub *mocks.Chainc
 	return assetBytes
 }
 
-func setReturnPrivateDataInStub(t *testing.T, chaincodeStub *mocks.ChaincodeStub, testAsset *chaincode.Schema) []byte {
+func setReturnPrivateDataInStub(t *testing.T, chaincodeStub *mocks.ChaincodeStub, testAsset interface{}) []byte {
 	if testAsset == nil {
 		chaincodeStub.GetPrivateDataReturns(nil, nil)
 		return nil
@@ -342,4 +479,12 @@ func setReturnPrivateDataInStub(t *testing.T, chaincodeStub *mocks.ChaincodeStub
 		chaincodeStub.GetPrivateDataReturns(assetBytes, nil)
 		return assetBytes
 	}
+}
+
+func createUUID(APIUserId string, org string) string {
+	userID := org + "." + APIUserId
+
+	h := sha1.New()
+	h.Write([]byte(userID))
+	return hex.EncodeToString(h.Sum(nil))
 }
