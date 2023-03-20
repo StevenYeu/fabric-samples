@@ -260,6 +260,7 @@ func TestNewUserSuccess(t *testing.T) {
 	testUserInput := transientUserInput{
 		UUID:        "testuuid1",
 		ProjectName: "testProj",
+		GroupName:   "testGroup",
 		APIUserId:   "testAPIUserID",
 		Org:         myOrg1Msp,
 	}
@@ -432,6 +433,30 @@ func TestNewUserBadIdentity(t *testing.T) {
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "Creation of a New User cannot be performed:")
+}
+
+func TestNewUserInvalidGroup(t *testing.T) {
+	transactionContext, chaincodeStub := prepMocksAsOrg1()
+	contract := chaincode.SmartContract{}
+
+	testUserInput := transientUserInput{
+		UUID:        "testuuid1",
+		ProjectName: "testProj",
+		APIUserId:   "testAPIUserID",
+		GroupName:   "BadGroup",
+		Org:         myOrg1Msp,
+	}
+	setReturnPropsInTransientMap(t, chaincodeStub, &testUserInput)
+
+	chaincodeStub.GetPrivateDataReturnsOnCall(0, nil, nil)
+
+	chaincodeStub.GetPrivateDataReturnsOnCall(1, nil, errors.New("No Ground Found"))
+
+	err := contract.NewUser(transactionContext)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Error Getting the Group")
+
 }
 
 func prepMocksAsOrg1() (*mocks.TransactionContext, *mocks.ChaincodeStub) {
